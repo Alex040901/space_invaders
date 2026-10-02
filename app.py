@@ -39,7 +39,7 @@ def crear_enemigos(filas, columnas):
             enemigos.append(alien)    
     return enemigos
 
-def edge_detection(enemigos, screen, direction):
+def edge_detection(enemigos, screen):
     edge_right = False
     edge_left = False
     for alien in enemigos:
@@ -47,7 +47,9 @@ def edge_detection(enemigos, screen, direction):
             edge_right = True
         if alien.rect.left <= 0:
             edge_left = True
+    return edge_right, edge_left
 
+def alien_move(edge_right, edge_left, direction, enemigos):
     if edge_right:
         direction = -1
         for alien in enemigos:
@@ -58,10 +60,9 @@ def edge_detection(enemigos, screen, direction):
         for alien in enemigos:
             alien.rect.y += ALIEN_DROP
 
-    for alien in enemigos:
-        alien.rect.x += SPEED * direction
+    return direction
             
-    return edge_right, edge_left, direction
+    
     
 
 
@@ -77,7 +78,10 @@ while running:
             if event.key == pygame.K_ESCAPE:
                 running = False   
 
-    edge_right, edge_left, direction = edge_detection(enemigos, screen, direction)
+    edge_right, edge_left = edge_detection(enemigos, screen)
+    direction = alien_move(edge_right, edge_left, direction, enemigos)
+    for alien in enemigos:
+        alien.rect.x += SPEED * direction
     screen.fill(BLACK)
     for alien in enemigos:
         pygame.draw.rect(screen, red, alien.rect)
