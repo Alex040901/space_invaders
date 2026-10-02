@@ -16,6 +16,9 @@ SEPARATION_X = 10
 SEPARATION_Y = 10
 START_X = 100
 START_Y = 80
+ALIEN_DROP = 20
+SPEED = 2
+BLACK = 0, 0, 0
 
 class Alien:
     def __init__(self, fila, columna, alien_rect):
@@ -36,7 +39,34 @@ def crear_enemigos(filas, columnas):
             enemigos.append(alien)    
     return enemigos
 
+def edge_detection(enemigos, screen, direction):
+    edge_right = False
+    edge_left = False
+    for alien in enemigos:
+        if alien.rect.right >= screen.get_width():
+            edge_right = True
+        if alien.rect.left <= 0:
+            edge_left = True
+
+    if edge_right:
+        direction = -1
+        for alien in enemigos:
+            alien.rect.y += ALIEN_DROP
+            
+    elif edge_left:
+        direction = 1
+        for alien in enemigos:
+            alien.rect.y += ALIEN_DROP
+
+    for alien in enemigos:
+        alien.rect.x += SPEED * direction
+            
+    return edge_right, edge_left, direction
+    
+
+
 enemigos = crear_enemigos(3, 4)
+direction = 1
 while running:
     clock.tick(60)
 
@@ -45,11 +75,12 @@ while running:
             running = False
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                running = False 
+                running = False   
 
+    edge_right, edge_left, direction = edge_detection(enemigos, screen, direction)
+    screen.fill(BLACK)
     for alien in enemigos:
-        pygame.draw.rect(screen, red, alien.rect)  
-
+        pygame.draw.rect(screen, red, alien.rect)
     pygame.display.flip()
 pygame.quit()
 sys.exit()
