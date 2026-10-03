@@ -9,6 +9,7 @@ running = True
 clock = pygame.time.Clock()
 
 red = 255, 0, 0
+white = 255, 255, 255
 
 ALIEN_WIDTH = 40
 ALIEN_HEIGHT = 40
@@ -19,6 +20,8 @@ START_Y = 80
 ALIEN_DROP = 20
 SPEED = 2
 BLACK = 0, 0, 0
+PLAYER_WIDTH = 60
+PLAYER_HEIGHT = 30
 
 class Alien:
     def __init__(self, fila, columna, alien_rect):
@@ -26,6 +29,20 @@ class Alien:
         self.columna = columna
         self.rect = alien_rect
         self.vivo = True
+
+class Player:
+    def __init__(self, player_rect, speed):
+        self.rect = player_rect
+        self.speed = speed
+        self.vivo = True
+
+def crear_nave(speed):
+    player_x = (width - PLAYER_WIDTH) // 2
+    player_y = height - PLAYER_HEIGHT - 20
+
+    player_rect = pygame.Rect(player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT)
+    player = Player(player_rect, speed)
+    return player
 
 def crear_enemigos(filas, columnas):
     enemigos = []
@@ -61,12 +78,9 @@ def alien_move(edge_right, edge_left, direction, enemigos):
             alien.rect.y += ALIEN_DROP
 
     return direction
-            
-    
-    
-
 
 enemigos = crear_enemigos(3, 4)
+player = crear_nave(5)
 direction = 1
 while running:
     clock.tick(60)
@@ -78,13 +92,29 @@ while running:
             if event.key == pygame.K_ESCAPE:
                 running = False   
 
+    keys = pygame.key.get_pressed()
+
+    if keys[pygame.K_LEFT]:
+        player.rect.x -= player.speed
+
+        if player.rect.left < 0:
+            player.rect.left = 0
+    
+    if keys[pygame.K_RIGHT]:
+        player.rect.x += player.speed
+
+        if player.rect.right > screen.get_width():
+            player.rect.right = screen.get_width()
+
     edge_right, edge_left = edge_detection(enemigos, screen)
     direction = alien_move(edge_right, edge_left, direction, enemigos)
+    #player = crear_nave(speed)
     for alien in enemigos:
         alien.rect.x += SPEED * direction
     screen.fill(BLACK)
     for alien in enemigos:
         pygame.draw.rect(screen, red, alien.rect)
+    pygame.draw.rect(screen, white, player.rect)
     pygame.display.flip()
 pygame.quit()
 sys.exit()
