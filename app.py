@@ -9,6 +9,7 @@ running = True
 clock = pygame.time.Clock()
 
 font_state = pygame.font.Font(None, 50)
+font_status = pygame.font.Font(None, 30)
 
 red = 255, 0, 0
 white = 255, 255, 255
@@ -150,7 +151,48 @@ def game_win(surface):
     text_rect.center = (width // 2, height // 2)
     surface.blit(texto, text_rect)
 
-enemigos = crear_enemigos(10, 10)
+def draw_score(surface, score_value):
+    score_text = font_status.render(f"Score: {score_value}", True, white)
+    surface.blit(score_text, (0, 0))
+
+def draw_lives(surface, lives):
+    lives_text = font_status.render(f"Lives: {lives}", True, white)
+    surface.blit(lives_text, (300, 0))
+
+def restart_round(current_time):
+    global last_enemy_shot, direction
+    player.rect.centerx = width // 2
+    player.rect.bottom = height - 20
+    bullets.clear()
+    enemy_bullets.clear()
+    last_enemy_shot = current_time
+    direction = 1
+    player.vivo = True
+    for alien in enemigos:
+        x = START_X + alien.columna * (ALIEN_WIDTH + SEPARATION_X)
+        y = START_Y + alien.fila * (ALIEN_HEIGHT + SEPARATION_Y)
+        alien.rect.x = x
+        alien.rect.y = y
+
+def restart_game(current_time):
+    global last_enemy_shot, direction, lives, score, enemigos, game_won, game_over_pending, game_won_pending
+    player.rect.centerx = width // 2
+    player.rect.bottom = height - 20
+    bullets.clear()
+    enemy_bullets.clear()
+    last_enemy_shot = current_time
+    direction = 1
+    player.vivo = True
+    lives = 3
+    score = 0
+    game_won = False
+    game_over_pending = False
+    game_won_pending = False
+    enemigos = crear_enemigos(filas, columnas)
+
+filas = 5
+columnas = 5
+enemigos = crear_enemigos(filas, columnas)
 player = crear_nave(5)
 direction = 1
 bullets = []
@@ -159,6 +201,9 @@ last_enemy_shot = 0
 game_won = False
 game_won_pending = False
 game_over_pending = False
+score = 0
+lives = 3
+
 while running:
     clock.tick(60)
     current_time = pygame.time.get_ticks()
@@ -208,6 +253,7 @@ while running:
             if bullet.rect.colliderect(alien.rect):
                 bullet_hit.append(bullet)
                 alien.vivo = False
+                score += (filas-alien.fila)*10
                 break
     enemigos = [alien for alien in enemigos if alien.vivo]
     bullets = [bullet for bullet in bullets if bullet not in bullet_hit]
@@ -219,7 +265,12 @@ while running:
     for enemy_bullet in enemy_bullets:
         if enemy_bullet.rect.colliderect(player.rect):
             enemy_bullet_hit.append(enemy_bullet)
-            game_over_pending = True
+            lives -= 1
+            if lives == 0:
+                game_over_pending = True
+                restart_game(current_time)
+            else:
+                restart_round(current_time)
             break
     enemy_bullets = [enemy_bullet for enemy_bullet in enemy_bullets if enemy_bullet not in enemy_bullet_hit]
 
@@ -255,6 +306,8 @@ while running:
         enemy_bullets = [enemy_bullet for enemy_bullet in enemy_bullets if enemy_bullet.rect.top < height]
         for enemy_bullet in enemy_bullets:
             pygame.draw.rect(screen, white, enemy_bullet.rect)
+        draw_score(screen, score)
+        draw_lives(screen, lives)
     if player.vivo:
         dibujar_nave(player)
     pygame.display.flip()
