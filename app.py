@@ -10,6 +10,7 @@ clock = pygame.time.Clock()
 
 font_state = pygame.font.Font(None, 50)
 font_status = pygame.font.Font(None, 30)
+font_sub = pygame.font.Font(None, 25)
 
 red = 255, 0, 0
 white = 255, 255, 255
@@ -140,16 +141,28 @@ def alien_move(edge_right, edge_left, direction, enemigos):
     return direction
 
 def game_over(surface):
+    screen.fill(BLACK)
     texto = font_state.render("Game Over", True, white)
     text_rect = texto.get_rect()
     text_rect.center = (width // 2, height // 2)
     surface.blit(texto, text_rect)
 
+    menu_text = font_sub.render("Press ENTER", True, white)
+    menu_rect = menu_text.get_rect()
+    menu_rect.center = (width // 2, height // 2 + 50)
+    surface.blit(menu_text, menu_rect)
+
 def game_win(surface):
+    screen.fill(BLACK)
     texto = font_state.render("Game Win!", True, white)
     text_rect = texto.get_rect()
     text_rect.center = (width // 2, height // 2)
     surface.blit(texto, text_rect)
+
+    menu_text = font_sub.render("Press ENTER", True, white)
+    menu_rect = menu_text.get_rect()
+    menu_rect.center = (width // 2, height // 2 + 50)
+    surface.blit(menu_text, menu_rect)
 
 def draw_score(surface, score_value):
     score_text = font_status.render(f"Score: {score_value}", True, white)
@@ -190,6 +203,18 @@ def restart_game(current_time):
     game_won_pending = False
     enemigos = crear_enemigos(filas, columnas)
 
+def game_menu_screen(surface):
+    surface.fill(BLACK)
+    texto = font_state.render("SPACE INVADERS", True, white)
+    text_rect = texto.get_rect()
+    text_rect.center = (width // 2, height // 2)
+    surface.blit(texto, text_rect)
+
+    menu_text = font_sub.render("Press ENTER", True, white)
+    menu_rect = menu_text.get_rect()
+    menu_rect.center = (width // 2, height // 2 + 50)
+    surface.blit(menu_text, menu_rect)
+
 filas = 5
 columnas = 5
 enemigos = crear_enemigos(filas, columnas)
@@ -203,6 +228,7 @@ game_won_pending = False
 game_over_pending = False
 score = 0
 lives = 3
+game_menu = True
 
 while running:
     clock.tick(60)
@@ -217,11 +243,15 @@ while running:
             if event.key == pygame.K_ESCAPE:
                 running = False   
 
-        if player.vivo and not game_won:
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    bullet = Bullet(player.rect, BULLET_SPEED)
-                    bullets.append(bullet)
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE and not game_menu and player.vivo and not game_won:
+                bullet = Bullet(player.rect, BULLET_SPEED)
+                bullets.append(bullet)
+            if event.key == pygame.K_RETURN and game_menu:
+                game_menu = False
+                restart_game(current_time)
+            elif event.key == pygame.K_RETURN and (game_won or not player.vivo):
+                game_menu = True
 
     if game_won_pending:
         game_won = True
@@ -268,7 +298,7 @@ while running:
             lives -= 1
             if lives == 0:
                 game_over_pending = True
-                restart_game(current_time)
+                game_over(screen)
             else:
                 restart_round(current_time)
             break
@@ -288,28 +318,35 @@ while running:
             enemy_bullets.append(enemy_bullet)
         last_enemy_shot = current_time
 
-    if player.vivo and not game_won:
-        edge_right, edge_left = edge_detection(enemigos, screen)
-        direction = alien_move(edge_right, edge_left, direction, enemigos)
-        for alien in enemigos:
-            alien.rect.x += ENEMY_SPEED * direction
-        screen.fill(BLACK)
-        for alien in enemigos:
-            dibujar_alien(alien)
-        for bullet in bullets:
-            pygame.draw.rect(screen, white, bullet.rect)
-        for bullet in bullets:
-            bullet.rect.y -= BULLET_SPEED
-        bullets = [bullet for bullet in bullets if bullet.rect.bottom > 0]
-        for enemy_bullet in enemy_bullets:
-            enemy_bullet.rect.y += enemy_bullet.speed
-        enemy_bullets = [enemy_bullet for enemy_bullet in enemy_bullets if enemy_bullet.rect.top < height]
-        for enemy_bullet in enemy_bullets:
-            pygame.draw.rect(screen, white, enemy_bullet.rect)
-        draw_score(screen, score)
-        draw_lives(screen, lives)
-    if player.vivo:
-        dibujar_nave(player)
+    if game_menu:
+        game_menu_screen(screen)
+    else:
+        if player.vivo and not game_won:
+            edge_right, edge_left = edge_detection(enemigos, screen)
+            direction = alien_move(edge_right, edge_left, direction, enemigos)
+            for alien in enemigos:
+                alien.rect.x += ENEMY_SPEED * direction
+            screen.fill(BLACK)
+            for alien in enemigos:
+                dibujar_alien(alien)
+            for bullet in bullets:
+                pygame.draw.rect(screen, white, bullet.rect)
+            for bullet in bullets:
+                bullet.rect.y -= BULLET_SPEED
+            bullets = [bullet for bullet in bullets if bullet.rect.bottom > 0]
+            for enemy_bullet in enemy_bullets:
+                enemy_bullet.rect.y += enemy_bullet.speed
+            enemy_bullets = [enemy_bullet for enemy_bullet in enemy_bullets if enemy_bullet.rect.top < height]
+            for enemy_bullet in enemy_bullets:
+                pygame.draw.rect(screen, white, enemy_bullet.rect)
+            draw_score(screen, score)
+            draw_lives(screen, lives)
+        elif game_won:
+            game_win(screen)
+        else:
+            game_over(screen)
+        if player.vivo:
+            dibujar_nave(player)
     pygame.display.flip()
 pygame.quit()
 sys.exit()
