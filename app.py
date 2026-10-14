@@ -29,6 +29,15 @@ BULLET_HEIGHT = 8
 BULLET_SPEED = 8
 ENEMY_BULLET_SPEED = 8
 MAX_LEVEL = 10
+MARGEN_NAVE =  40
+MARGEN_INFERIOR = 20
+CYAN = (0, 229, 255)
+LIGHT_CYAN = (128, 255, 255)
+ORANGE = (255, 140, 0)
+INVULNERABILITY_TIME = 1000
+NIVEL_PRUEBA = 1
+INCREMENTO_VELOCIDAD = 0.5
+
 
 nave = (
     (0, 0, 0, 0, 1, 0, 0, 0, 0),
@@ -55,8 +64,8 @@ PLAYER_HEIGHT = len(nave) * NAVE_PIXEL_SIZE
 ALIEN_WIDTH = len(alien_sprite[0]) * ALIEN_PIXEL_SIZE
 ALIEN_HEIGHT = len(alien_sprite) * ALIEN_PIXEL_SIZE
 
-max_columnas = (width - START_X) // (ALIEN_WIDTH + SEPARATION_X) + 1
-print(max_columnas)
+MAX_COLUMNAS = (width - START_X) // (ALIEN_WIDTH + SEPARATION_X) + 1
+
 class Alien:
     def __init__(self, fila, columna, alien_rect):
         self.fila = fila
@@ -86,11 +95,10 @@ class EnemyBullet:
 
 def crear_nave(speed):
     player_x = (width - PLAYER_WIDTH) // 2
-    player_y = height - PLAYER_HEIGHT - 20
-
+    player_y = height - PLAYER_HEIGHT - MARGEN_INFERIOR
     player_rect = pygame.Rect(player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT)
     player = Player(player_rect, speed)
-    return player
+    return player, player_y
 
 def dibujar_nave(player):
     for indice_fila, fila in enumerate(nave):
@@ -98,7 +106,7 @@ def dibujar_nave(player):
             if pixel == 1:
                 x = NAVE_PIXEL_SIZE * indice_col + player.rect.x
                 y = NAVE_PIXEL_SIZE * indice_fila + player.rect.y
-                pygame.draw.rect(screen, white,(x, y, NAVE_PIXEL_SIZE, NAVE_PIXEL_SIZE))
+                pygame.draw.rect(screen, CYAN,(x, y, NAVE_PIXEL_SIZE, NAVE_PIXEL_SIZE))
 
 def dibujar_alien(alien):
     for indice_fila, fila in enumerate(alien_sprite):
@@ -124,6 +132,8 @@ def edge_detection(enemigos, screen):
     edge_right = False
     edge_left = False
     for alien in enemigos:
+        if not alien.vivo:
+            continue
         if alien.rect.right >= screen.get_width():
             edge_right = True
         if alien.rect.left <= 0:
@@ -189,13 +199,14 @@ def restart_round(current_time):
     direction = 1
     player.vivo = True
     for alien in enemigos:
-        x = START_X + alien.columna * (ALIEN_WIDTH + SEPARATION_X)
-        y = START_Y + alien.fila * (ALIEN_HEIGHT + SEPARATION_Y)
-        alien.rect.x = x
-        alien.rect.y = y
+        if alien.vivo:
+            x = START_X + alien.columna * (ALIEN_WIDTH + SEPARATION_X)
+            y = START_Y + alien.fila * (ALIEN_HEIGHT + SEPARATION_Y)
+            alien.rect.x = x
+            alien.rect.y = y
 
 def restart_game(current_time):
-    global last_enemy_shot, direction, lives, score, enemigos, game_won, game_over_pending, game_won_pending
+    global level, last_enemy_shot, direction, lives, score, enemigos, game_won, game_over_pending, game_won_pending
     player.rect.centerx = width // 2
     player.rect.bottom = height - 20
     bullets.clear()
@@ -205,9 +216,11 @@ def restart_game(current_time):
     player.vivo = True
     lives = 3
     score = 0
+    level = NIVEL_PRUEBA
     game_won = False
     game_over_pending = False
     game_won_pending = False
+    filas_nivel, columnas_nivel, velocidad = calcular_formacion(level, filas, columnas)
     enemigos = crear_enemigos(filas_nivel, columnas_nivel)
 
 def game_menu_screen(surface):
@@ -222,24 +235,28 @@ def game_menu_screen(surface):
     menu_rect.center = (width // 2, height // 2 + 50)
     surface.blit(menu_text, menu_rect)
 
-def draw_level_transition(surface, current_level):
-    level_text = font_sub.render(f"Level: {current_level}", True, white)
-    level_rect = level_text.get_rect()
-    level_rect.center = (width // 2, height // 2)
-    surface.blit(level_text, level_rect)
+def draw_level_transition(surface, level):
+    screen.fill(BLACK)
+    current_level_text = font_sub.render(f"Level: {level}", True, white)
+    current_level_rect = current_level_text.get_rect()
+    current_level_rect.center = (width // 2, height // 2)
+    surface.blit(current_level_text, current_level_rect)
 
 def calcular_formacion(level, filas, columnas):
-    filas_nivel = (level + (filas - 1))
-    columnas_nivel = min(level + (columnas - 1), max_columnas)
-    return filas_nivel, columnas_nivel
+    filas_nivel = min(level + (filas - 1), MAX_FILAS)
+    columnas_nivel = min(level + (columnas - 1), MAX_COLUMNAS)
+    velocidad = ENEMY_SPEED + (level - 1) * INCREMENTO_VELOCIDAD
+    return filas_nivel, columnas_nivel, velocidad
 
-level = 1
+level = NIVEL_PRUEBA
 filas = 4
 columnas = 6
-filas_nivel, columnas_nivel = calcular_formacion(level, filas, columnas)
+player, player_y = crear_nave(5)
+limite_inferior_aliens = player_y - MARGEN_NAVE
+espacio_vertical = limite_inferior_aliens - START_Y
+MAX_FILAS = espacio_vertical // (ALIEN_HEIGHT + SEPARATION_Y)
+filas_nivel, columnas_nivel, velocidad = calcular_formacion(level, filas, columnas)
 enemigos = crear_enemigos(filas_nivel, columnas_nivel)
-print(filas_nivel, columnas_nivel)
-player = crear_nave(5)
 direction = 1
 bullets = []
 enemy_bullets = []
@@ -252,6 +269,7 @@ lives = 3
 game_menu = True
 level_transition = False
 level_transition_start = 0
+last_damage_time = 0
 
 while running:
     clock.tick(60)
@@ -267,7 +285,7 @@ while running:
                 running = False   
 
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE and not game_menu and player.vivo and not game_won:
+            if event.key == pygame.K_SPACE and not game_menu and player.vivo and not game_won and not level_transition:
                 bullet = Bullet(player.rect, BULLET_SPEED)
                 bullets.append(bullet)
             if event.key == pygame.K_RETURN and game_menu:
@@ -311,10 +329,21 @@ while running:
     enemigos = [alien for alien in enemigos if alien.vivo]
     bullets = [bullet for bullet in bullets if bullet not in bullet_hit]
 
-    if not enemigos:
-        level += 1
-        #print("NIVEL", level)
-        game_won_pending = True
+    if not enemigos and not level_transition:
+        level_transition = True
+        level_transition_start = pygame.time.get_ticks()
+
+        if level == MAX_LEVEL:
+            game_won_pending = True
+    if level_transition and not game_won_pending:
+        if pygame.time.get_ticks() - level_transition_start >= 2000:
+            level += 1
+            filas_nivel, columnas_nivel, velocidad = calcular_formacion(level, filas, columnas)
+            enemigos = crear_enemigos(filas_nivel, columnas_nivel)
+            bullets.clear()
+            enemy_bullets.clear()
+            direction = 1
+            level_transition = False
 
     enemy_bullet_hit = []
     for enemy_bullet in enemy_bullets:
@@ -350,12 +379,22 @@ while running:
             edge_right, edge_left = edge_detection(enemigos, screen)
             direction = alien_move(edge_right, edge_left, direction, enemigos)
             for alien in enemigos:
-                alien.rect.x += ENEMY_SPEED * direction
+                alien.rect.x += velocidad * direction
             screen.fill(BLACK)
             for alien in enemigos:
                 dibujar_alien(alien)
+                if alien.rect.colliderect(player.rect):
+                    tiempo_actual = pygame.time.get_ticks()
+                    if tiempo_actual - last_damage_time >= INVULNERABILITY_TIME:
+                        lives -= 1
+                        last_damage_time = tiempo_actual
+                        alien.vivo = False
+                        restart_round(current_time)
+                        break 
+            if lives <= 0:
+                player.vivo = False
             for bullet in bullets:
-                pygame.draw.rect(screen, white, bullet.rect)
+                pygame.draw.rect(screen, LIGHT_CYAN, bullet.rect)
             for bullet in bullets:
                 bullet.rect.y -= BULLET_SPEED
             bullets = [bullet for bullet in bullets if bullet.rect.bottom > 0]
@@ -363,7 +402,7 @@ while running:
                 enemy_bullet.rect.y += enemy_bullet.speed
             enemy_bullets = [enemy_bullet for enemy_bullet in enemy_bullets if enemy_bullet.rect.top < height]
             for enemy_bullet in enemy_bullets:
-                pygame.draw.rect(screen, white, enemy_bullet.rect)
+                pygame.draw.rect(screen, ORANGE, enemy_bullet.rect)
             draw_score(screen, score)
             draw_lives(screen, lives)
             dibujar_nave(player)
@@ -372,6 +411,8 @@ while running:
             game_win(screen)
         else:
             game_over(screen)
+        if level_transition and not game_won_pending:
+            draw_level_transition(screen, level + 1)
     pygame.display.flip()
 pygame.quit()
 sys.exit()
